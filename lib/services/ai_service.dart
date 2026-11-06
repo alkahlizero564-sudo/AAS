@@ -12,8 +12,14 @@ class AiService {
   static const _defaultGemini = 'gemini-2.5-flash';
   static const _claudeModel = 'claude-sonnet-5-5';
 
-  /// يرجع نص الرد (JSON) من Gemini أو Claude
-  static Future<String> ask(String system, List<ChatTurn> turns) async {
+  /// json=true: الرد JSON. json=false: نص عادي (SQL أو كود).
+  /// maxTokens يخص Claude فقط.
+  static Future<String> ask(
+    String system,
+    List<ChatTurn> turns, {
+    bool json = true,
+    int maxTokens = 8000,
+  }) async {
     final errors = <String>[];
 
     var model = await SettingsService.get(SettingsService.modelKey);
@@ -23,7 +29,7 @@ class AiService {
       final key = await SettingsService.get('gemini_key_$i');
       if (key.isEmpty) continue;
       try {
-        return await _gemini(key, model, system, turns);
+        return await _gemini(key, model, system, turns, json);
       } catch (e) {
         errors.add('Gemini $i: $e');
       }
@@ -32,7 +38,7 @@ class AiService {
     final claude = await SettingsService.get('claude_key');
     if (claude.isNotEmpty) {
       try {
-        return await _claude(claude, system, turns);
+        return await _claude(claude, system, turns, maxTokens);
       } catch (e) {
         errors.add('Claude: $e');
       }
@@ -49,6 +55,7 @@ class AiService {
     String model,
     String system,
     List<ChatTurn> turns,
+    bool json,
   ) async {
     final res = await http
         .post(
@@ -74,12 +81,12 @@ class AiService {
                 }
             ],
             'generationConfig': {
-              'responseMimeType': 'application/json',
               'temperature': 0.7,
+              if (json) 'responseMimeType': 'application/json',
             },
           }),
         )
-        .timeout(const Duration(seconds: 60));
+        .timeout(const Duration(seconds: 180));
 
     if (res.statusCode != 200) {
       throw Exception('HTTP ${res.statusCode}');
@@ -93,6 +100,7 @@ class AiService {
     String key,
     String system,
     List<ChatTurn> turns,
+    int maxTokens,
   ) async {
     final res = await http
         .post(
@@ -104,7 +112,7 @@ class AiService {
           },
           body: jsonEncode({
             'model': _claudeModel,
-            'max_tokens': 2500,
+            'max_tokens': maxTokens,
             'system': system,
             'messages': [
               for (final t in turns)
@@ -115,7 +123,7 @@ class AiService {
             ],
           }),
         )
-        .timeout(const Duration(seconds: 60));
+        .timeout(const Duration(seconds: 180));
 
     if (res.statusCode != 200) {
       throw Exception('HTTP ${res.statusCode}');
