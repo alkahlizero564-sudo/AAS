@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/settings_service.dart';
+import 'generate_screen.dart';
 import 'idea_screen.dart';
 import 'settings_screen.dart';
 
@@ -27,12 +28,45 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) setState(() => _filled = n);
   }
 
-  Future<void> _openSettings() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const SettingsScreen()),
-    );
+  Future<void> _open(Widget page) async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => page));
     _load();
+  }
+
+  Widget _navCard(IconData icon, String title, String sub, VoidCallback onTap) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A2347),
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Row(
+            children: [
+              Icon(icon),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: const TextStyle(
+                            fontSize: 17, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 4),
+                    Text(sub, style: const TextStyle(color: Colors.white60)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_left_rounded),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -48,7 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           IconButton(
-            onPressed: _openSettings,
+            onPressed: () => _open(const SettingsScreen()),
             icon: const Icon(Icons.settings_rounded),
           ),
         ],
@@ -58,6 +92,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(24),
+            margin: const EdgeInsets.only(bottom: 14),
             decoration: BoxDecoration(
               color: card,
               borderRadius: BorderRadius.circular(28),
@@ -76,19 +111,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 20),
                 FilledButton.icon(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const IdeaScreen()),
-                  ),
+                  onPressed: () => _open(const IdeaScreen()),
                   icon: const Icon(Icons.auto_awesome_rounded),
                   label: const Text('تطبيق جديد'),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          _navCard(
+            Icons.storage_rounded,
+            'توليد المشروع',
+            'قاعدة البيانات وكود التطبيقات',
+            () => _open(const GenerateScreen()),
+          ),
           InkWell(
-            onTap: _openSettings,
+            onTap: () => _open(const SettingsScreen()),
             borderRadius: BorderRadius.circular(24),
             child: Container(
               padding: const EdgeInsets.all(20),
