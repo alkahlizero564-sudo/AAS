@@ -31,13 +31,30 @@ class SettingsService {
     SettingField('github_token', 'GitHub Access Token', 'ghp_...', 'GitHub'),
     SettingField('github_repo', 'المستودع (GitHub Repo)', 'username/AAS', 'GitHub',
         plain: true),
-    SettingField('supabase_token', 'Supabase Access Token', 'sbp_...', 'Supabase'),
-    SettingField('supabase_ref', 'Supabase Project Ref', 'abcdefghijklmn', 'Supabase',
+    SettingField('supabase_token', 'Personal Access Token (من الحساب)',
+        'sbp_...', 'Supabase'),
+    SettingField('supabase_ref', 'Project Ref (من رابط المشروع)',
+        'abcdefghijklmn', 'Supabase',
         plain: true),
-    SettingField('supabase_key', 'Supabase API Key', 'eyJ...', 'Supabase'),
+    SettingField('supabase_key', 'Publishable key (من API Keys)',
+        'sb_publishable_... أو مفتاح anon', 'Supabase'),
+    SettingField('smtp_host', 'SMTP: الخادم (اختياري)',
+        'smtp-relay.brevo.com', 'Supabase',
+        plain: true),
+    SettingField('smtp_port', 'SMTP: المنفذ', '587', 'Supabase', plain: true),
+    SettingField('smtp_user', 'SMTP: اسم المستخدم', 'xxxx@smtp-brevo.com',
+        'Supabase',
+        plain: true),
+    SettingField('smtp_pass', 'SMTP: كلمة المرور', '', 'Supabase'),
+    SettingField('smtp_sender', 'SMTP: عنوان المرسل', 'you@gmail.com',
+        'Supabase',
+        plain: true),
     SettingField('firebase_json', 'Firebase JSON Key', '{ ... }', 'Firebase',
         multiline: true),
   ];
+
+  static List<SettingField> group(String g) =>
+      fields.where((f) => f.group == g).toList();
 
   static Future<String> get(String key) async =>
       await _storage.read(key: key) ?? '';
