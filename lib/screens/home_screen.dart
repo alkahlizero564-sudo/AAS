@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/settings_service.dart';
+import 'idea_screen.dart';
 import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -74,10 +75,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: TextStyle(color: Colors.white70),
                 ),
                 const SizedBox(height: 20),
-                const FilledButton.icon(
-                  onPressed: null,
-                  icon: Icon(Icons.auto_awesome_rounded),
-                  label: Text('تطبيق جديد (المرحلة 2)'),
+                FilledButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const IdeaScreen()),
+                  ),
+                  icon: const Icon(Icons.auto_awesome_rounded),
+                  label: const Text('تطبيق جديد'),
                 ),
               ],
             ),
