@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 
 class ProjectStore {
@@ -16,11 +17,25 @@ class ProjectStore {
     await f.writeAsString(content);
   }
 
+  static Future<void> writeBytes(String relPath, Uint8List bytes) async {
+    final d = await root();
+    final f = File('${d.path}/$relPath');
+    await f.parent.create(recursive: true);
+    await f.writeAsBytes(bytes);
+  }
+
   static Future<String?> read(String relPath) async {
     final d = await root();
     final f = File('${d.path}/$relPath');
     if (!await f.exists()) return null;
     return f.readAsString();
+  }
+
+  static Future<Uint8List?> readBytes(String relPath) async {
+    final d = await root();
+    final f = File('${d.path}/$relPath');
+    if (!await f.exists()) return null;
+    return f.readAsBytes();
   }
 
   static Future<void> remove(String rel) async {
