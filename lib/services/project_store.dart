@@ -1,0 +1,41 @@
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+
+class ProjectStore {
+  static Future<Directory> root() async {
+    final base = await getApplicationDocumentsDirectory();
+    final d = Directory('${base.path}/aas_project');
+    if (!await d.exists()) await d.create(recursive: true);
+    return d;
+  }
+
+  static Future<void> write(String relPath, String content) async {
+    final d = await root();
+    final f = File('${d.path}/$relPath');
+    await f.parent.create(recursive: true);
+    await f.writeAsString(content);
+  }
+
+  static Future<String?> read(String relPath) async {
+    final d = await root();
+    final f = File('${d.path}/$relPath');
+    if (!await f.exists()) return null;
+    return f.readAsString();
+  }
+
+  static Future<void> remove(String rel) async {
+    final d = await root();
+    final t = Directory('${d.path}/$rel');
+    if (await t.exists()) await t.delete(recursive: true);
+  }
+
+  static Future<List<String>> list() async {
+    final d = await root();
+    final out = <String>[];
+    await for (final e in d.list(recursive: true)) {
+      if (e is File) out.add(e.path.substring(d.path.length + 1));
+    }
+    out.sort();
+    return out;
+  }
+}
