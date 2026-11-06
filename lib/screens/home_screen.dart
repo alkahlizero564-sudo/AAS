@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import '../services/settings_service.dart';
+import 'design_screen.dart';
 import 'generate_screen.dart';
 import 'idea_screen.dart';
+import 'preview_screen.dart';
 import 'settings_screen.dart';
+import 'templates_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -35,19 +38,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _navCard(IconData icon, String title, String sub, VoidCallback onTap) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 12),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(24),
         child: Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             color: const Color(0xFF1A2347),
             borderRadius: BorderRadius.circular(24),
           ),
           child: Row(
             children: [
-              Icon(icon),
+              Icon(icon, color: const Color(0xFFC6F750)),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -118,12 +121,14 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          _navCard(
-            Icons.storage_rounded,
-            'توليد المشروع',
-            'قاعدة البيانات وكود التطبيقات',
-            () => _open(const GenerateScreen()),
-          ),
+          _navCard(Icons.dashboard_customize_rounded, 'القوالب الجاهزة',
+              'ورشة، صالون، عيادة، متجر وغيرها', () => _open(const TemplatesScreen())),
+          _navCard(Icons.palette_rounded, 'الأسماء والأيقونات والتصميم',
+              'اسم وأيقونة وواجهات كل تطبيق', () => _open(const DesignScreen())),
+          _navCard(Icons.visibility_rounded, 'المعاينة الفورية',
+              'HTML وReact وFlutter وKotlin وPython وPHP', () => _open(const PreviewScreen())),
+          _navCard(Icons.storage_rounded, 'توليد المشروع',
+              'قاعدة البيانات وكود التطبيقات', () => _open(const GenerateScreen())),
           InkWell(
             onTap: () => _open(const SettingsScreen()),
             borderRadius: BorderRadius.circular(24),
