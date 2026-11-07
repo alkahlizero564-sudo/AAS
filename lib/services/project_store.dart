@@ -38,10 +38,15 @@ class ProjectStore {
     return f.readAsBytes();
   }
 
+  /// يحذف ملف أو فولدر
   static Future<void> remove(String rel) async {
     final d = await root();
-    final t = Directory('${d.path}/$rel');
-    if (await t.exists()) await t.delete(recursive: true);
+    final p = '${d.path}/$rel';
+    if (await FileSystemEntity.isDirectory(p)) {
+      await Directory(p).delete(recursive: true);
+    } else if (await FileSystemEntity.isFile(p)) {
+      await File(p).delete();
+    }
   }
 
   static Future<List<String>> list() async {
