@@ -14,6 +14,7 @@ dependencies:
   path_provider: ^2.1.4
   webview_flutter: ^4.10.0
   image_picker: ^1.1.2
+  ota_update: ^6.0.0
 
 dev_dependencies:
   flutter_lints: ^4.0.0
