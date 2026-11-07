@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../services/settings_service.dart';
 import 'design_screen.dart';
+import 'edit_app_screen.dart';
 import 'generate_screen.dart';
 import 'idea_screen.dart';
 import 'preview_screen.dart';
+import 'release_screen.dart';
 import 'settings_screen.dart';
 import 'templates_screen.dart';
 
@@ -122,13 +124,23 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           _navCard(Icons.dashboard_customize_rounded, 'القوالب الجاهزة',
-              'ورشة، صالون، عيادة، متجر وغيرها', () => _open(const TemplatesScreen())),
+              'ورشة، صالون، عيادة، متجر وغيرها',
+              () => _open(const TemplatesScreen())),
           _navCard(Icons.palette_rounded, 'الأسماء والأيقونات والتصميم',
-              'اسم وأيقونة وواجهات كل تطبيق', () => _open(const DesignScreen())),
+              'اسم وأيقونة وواجهات كل تطبيق',
+              () => _open(const DesignScreen())),
           _navCard(Icons.visibility_rounded, 'المعاينة الفورية',
-              'HTML وReact وFlutter وKotlin وPython وPHP', () => _open(const PreviewScreen())),
+              'HTML وReact وFlutter وKotlin وPython وPHP',
+              () => _open(const PreviewScreen())),
           _navCard(Icons.storage_rounded, 'توليد المشروع',
-              'قاعدة البيانات وكود التطبيقات', () => _open(const GenerateScreen())),
+              'قاعدة البيانات وكود التطبيقات',
+              () => _open(const GenerateScreen())),
+          _navCard(Icons.rocket_launch_rounded, 'النشر والبناء',
+              'رفع لـ GitHub وبناء APK وتثبيت',
+              () => _open(const ReleaseScreen())),
+          _navCard(Icons.edit_note_rounded, 'تعديل تطبيق',
+              'أضف أو غيّر أو احذف وانشر التحديث',
+              () => _open(const EditAppScreen())),
           InkWell(
             onTap: () => _open(const SettingsScreen()),
             borderRadius: BorderRadius.circular(24),
