@@ -49,12 +49,14 @@ jobs:
 
       - run: flutter pub get
 
-      - name: Build (مع بدائل لتحميل Gradle)
+      - name: Build (مع مرايا بديلة للتحميل)
         run: |
           set -o pipefail
           P=android/gradle/wrapper/gradle-wrapper.properties
 
-          use_mirror() {
+          use_gradle_mirror() {
+            [ -f "$P" ] || return 0
+            grep -q mirrors "$P" && return 0
             VER=$(grep -oE 'gradle-[0-9][0-9.]*' "$P" | head -1 | sed 's/^gradle-//; s/\.$//')
             for M in "https://mirrors.cloud.tencent.com/gradle" "https://mirrors.aliyun.com/gradle"; do
               if curl -fsIL --max-time 25 "$M/gradle-$VER-bin.zip" > /dev/null; then
@@ -64,22 +66,45 @@ jobs:
                 return 0
               fi
             done
-            echo "no mirror available"
-            return 1
+            echo "no gradle mirror available"
+            return 0
           }
 
-          for i in 1 2 3 4; do
+          use_maven_mirror() {
+            mkdir -p "$HOME/.gradle/init.d"
+            cat > "$HOME/.gradle/init.d/mirror.gradle" <<'EOF'
+          def mirrors = [
+            'https://maven.aliyun.com/repository/public',
+            'https://maven.aliyun.com/repository/google',
+            'https://maven.aliyun.com/repository/gradle-plugin',
+            'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/'
+          ]
+          allprojects {
+            buildscript {
+              repositories { mirrors.each { u -> maven { url u } } }
+            }
+            repositories { mirrors.each { u -> maven { url u } } }
+          }
+          beforeSettings { settings ->
+            settings.pluginManagement {
+              repositories { mirrors.each { u -> maven { url u } } }
+            }
+          }
+          EOF
+            echo "Maven mirrors enabled"
+          }
+
+          for i in 1 2 3 4 5; do
             if flutter build apk --release 2>&1 | tee build.log; then
               exit 0
             fi
-            if ! grep -qE 'HTTP response code|Could not (resolve|download|get)|timed out|Connection reset' build.log; then
+            if ! grep -qE 'HTTP response code|status code 5[0-9][0-9]|Gateway Time-out|Could not (resolve|download|get)|timed out|Connection reset' build.log; then
               echo "فشل ليس بسبب الشبكة. لا إعادة محاولة."
               exit 1
             fi
             echo "المحاولة $i فشلت بسبب الشبكة."
-            if [ -f "$P" ] && ! grep -q mirrors "$P"; then
-              use_mirror || true
-            fi
+            use_gradle_mirror
+            use_maven_mirror
             sleep 15
           done
           exit 1
