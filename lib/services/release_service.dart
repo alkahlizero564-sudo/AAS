@@ -194,9 +194,10 @@ rm -rf "$WORK"
 ''';
 
   // ---------------------------------------------------------------
-  // tools/patch_android.py : صلاحيات + اسم + minSdk + أيقونة
+  // tools/patch_android.py : صلاحيات + اسم + minSdk + أيقونة + Firebase
   // ---------------------------------------------------------------
   static const patchScript = r'''
+import json
 import os
 import re
 import subprocess
@@ -211,7 +212,7 @@ s = open(manifest, encoding='utf-8').read()
 label = (name.replace('&', '&amp;').replace('<', '&lt;')
              .replace('>', '&gt;').replace('"', '&quot;'))
 perms = ''
-for p in ('INTERNET', 'REQUEST_INSTALL_PACKAGES'):
+for p in ('INTERNET', 'REQUEST_INSTALL_PACKAGES', 'POST_NOTIFICATIONS'):
     if 'android.permission.' + p not in s:
         perms += '    <uses-permission android:name="android.permission.%s"/>\n' % p
 if perms:
@@ -242,6 +243,36 @@ if os.path.exists(icon):
         out = os.path.join(root, 'android/app/src/main/res/mipmap-' + d)
         os.makedirs(out, exist_ok=True)
         img.resize((size, size), Image.LANCZOS).save(os.path.join(out, 'ic_launcher.png'))
+
+# 4) Firebase: موارد أندرويد بدل plugin الـ Gradle
+gs = os.path.join(root, 'google-services.json')
+if os.path.exists(gs):
+    data = json.load(open(gs, encoding='utf-8'))
+    info = data.get('project_info', {})
+    client = (data.get('client') or [{}])[0]
+    app_id = client.get('client_info', {}).get('mobilesdk_app_id', '')
+    api_key = ((client.get('api_key') or [{}])[0]).get('current_key', '')
+    res = os.path.join(root, 'android/app/src/main/res')
+    os.makedirs(os.path.join(res, 'values'), exist_ok=True)
+    os.makedirs(os.path.join(res, 'raw'), exist_ok=True)
+    xml = ('<?xml version="1.0" encoding="utf-8"?>\n<resources>\n'
+           '    <string name="google_app_id" translatable="false">%s</string>\n'
+           '    <string name="gcm_defaultSenderId" translatable="false">%s</string>\n'
+           '    <string name="google_api_key" translatable="false">%s</string>\n'
+           '    <string name="google_crash_reporting_api_key" translatable="false">%s</string>\n'
+           '    <string name="project_id" translatable="false">%s</string>\n'
+           '    <string name="google_storage_bucket" translatable="false">%s</string>\n'
+           '</resources>\n') % (app_id, info.get('project_number', ''), api_key, api_key,
+                                info.get('project_id', ''), info.get('storage_bucket', ''))
+    open(os.path.join(res, 'values/google_services.xml'), 'w', encoding='utf-8').write(xml)
+    keep = ('<?xml version="1.0" encoding="utf-8"?>\n'
+            '<resources xmlns:tools="http://schemas.android.com/tools" '
+            'tools:keep="@string/google_app_id,@string/gcm_defaultSenderId,'
+            '@string/google_api_key,@string/google_crash_reporting_api_key,'
+            '@string/project_id,@string/google_storage_bucket" />\n')
+    open(os.path.join(res, 'raw/keep.xml'), 'w', encoding='utf-8').write(keep)
+    print('firebase resources written')
+
 print('patched', root)
 ''';
 
@@ -388,6 +419,66 @@ class _UpdateDialogState extends State<_UpdateDialog> {
 ''';
 
   // ---------------------------------------------------------------
+  // lib/push_gate.dart : تسجيل توكن الجهاز واستقبال الإشعارات
+  // ---------------------------------------------------------------
+  static const pushGate = r'''
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class PushGate extends StatefulWidget {
+  final String appKey;
+  final Widget child;
+  const PushGate({super.key, required this.appKey, required this.child});
+
+  @override
+  State<PushGate> createState() => _PushGateState();
+}
+
+class _PushGateState extends State<PushGate> {
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  Future<void> _register(String token) async {
+    try {
+      await Supabase.instance.client.rpc('register_device', params: {
+        'p_token': token,
+        'p_app_key': widget.appKey,
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _init() async {
+    try {
+      if (Firebase.apps.isEmpty) await Firebase.initializeApp();
+      final fm = FirebaseMessaging.instance;
+      await fm.requestPermission();
+      final token = await fm.getToken();
+      if (token != null) await _register(token);
+      fm.onTokenRefresh.listen(_register);
+      FirebaseMessaging.onMessage.listen((m) {
+        final n = m.notification;
+        if (n == null || !mounted) return;
+        final text = [n.title, n.body]
+            .where((e) => e != null && e.isNotEmpty)
+            .join('\n');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(text), duration: const Duration(seconds: 5)),
+        );
+      });
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+''';
+
+  // ---------------------------------------------------------------
   // أدوات
   // ---------------------------------------------------------------
   static List<RepoFile> toolFiles() => [
@@ -397,35 +488,58 @@ class _UpdateDialogState extends State<_UpdateDialog> {
         RepoFile.text('tools/patch_android.py', patchScript),
       ];
 
-  static String _patchPubspec(String t) {
-    if (t.contains('ota_update')) return t;
-    return t.replaceFirst('  supabase_flutter: ^2.8.0',
-        '  supabase_flutter: ^2.8.0\n  ota_update: ^6.0.0');
+  static String _patchPubspec(String t, bool push) {
+    var r = t;
+    if (!r.contains('ota_update')) {
+      r = r.replaceFirst('  supabase_flutter: ^2.8.0',
+          '  supabase_flutter: ^2.8.0\n  ota_update: ^6.0.0');
+    }
+    if (push && !r.contains('firebase_core')) {
+      r = r.replaceFirst('  ota_update: ^6.0.0',
+          '  ota_update: ^6.0.0\n  firebase_core: ^3.8.0\n  firebase_messaging: ^15.1.4');
+    }
+    return r;
   }
 
-  static String _patchMain(String t, String key) {
-    if (t.contains('UpdateGate(')) return t;
-    var r = t.replaceFirst("import 'app_home.dart';",
-        "import 'app_home.dart';\nimport 'update_gate.dart';");
-    r = r.replaceFirst('const AppHome()',
-        "UpdateGate(appKey: '$key', child: const AppHome())");
+  static String _patchMain(String t, String key, bool push) {
+    var r = t;
+    if (!r.contains('UpdateGate(')) {
+      r = r.replaceFirst("import 'app_home.dart';",
+          "import 'app_home.dart';\nimport 'update_gate.dart';");
+      r = r.replaceFirst('const AppHome()',
+          "UpdateGate(appKey: '$key', child: const AppHome())");
+    }
+    if (push && !r.contains('PushGate(')) {
+      r = r.replaceFirst("import 'update_gate.dart';",
+          "import 'update_gate.dart';\nimport 'push_gate.dart';");
+      r = r.replaceFirst(
+          "UpdateGate(appKey: '$key', child: const AppHome())",
+          "PushGate(appKey: '$key', child: UpdateGate(appKey: '$key', child: const AppHome()))");
+    }
     return r;
   }
 
   /// يجمع ملفات تطبيق من الذاكرة ويجهزها للرفع تحت apps/appN
   static Future<List<RepoFile>> collectApp(int i) async {
     final dir = 'app${i + 1}';
+    final gs = await ProjectStore.read('meta/${dir}_google_services.json');
+    final push = gs != null && gs.trim().isNotEmpty;
+
     final out = <RepoFile>[];
     for (final rel in await ProjectStore.list()) {
       if (!rel.startsWith('$dir/')) continue;
       var text = await ProjectStore.read(rel);
       if (text == null || text.isEmpty) continue;
       final sub = rel.substring(dir.length + 1);
-      if (sub == 'pubspec.yaml') text = _patchPubspec(text);
-      if (sub == 'lib/main.dart') text = _patchMain(text, dir);
+      if (sub == 'pubspec.yaml') text = _patchPubspec(text, push);
+      if (sub == 'lib/main.dart') text = _patchMain(text, dir, push);
       out.add(RepoFile.text('apps/$dir/$sub', text));
     }
     out.add(RepoFile.text('apps/$dir/lib/update_gate.dart', updateGate));
+    if (push) {
+      out.add(RepoFile.text('apps/$dir/lib/push_gate.dart', pushGate));
+      out.add(RepoFile.text('apps/$dir/google-services.json', gs));
+    }
     final icon = await ProjectStore.readBytes('meta/${dir}_icon.png');
     if (icon != null) out.add(RepoFile.bytes('apps/$dir/icon.png', icon));
     return out;
@@ -458,4 +572,4 @@ on conflict (app_key) do update set
   updated_at = now();
 ''';
   }
-}
+} 
