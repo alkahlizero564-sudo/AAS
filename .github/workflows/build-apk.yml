@@ -73,21 +73,48 @@ jobs:
           use_maven_mirror() {
             mkdir -p "$HOME/.gradle/init.d"
             cat > "$HOME/.gradle/init.d/mirror.gradle" <<'EOF'
-          def mirrors = [
+          import org.gradle.api.initialization.resolve.RepositoriesMode
+
+          def mirrorUrls = [
             'https://maven.aliyun.com/repository/public',
             'https://maven.aliyun.com/repository/google',
             'https://maven.aliyun.com/repository/gradle-plugin',
             'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/'
           ]
-          allprojects {
-            buildscript {
-              repositories { mirrors.each { u -> maven { url u } } }
+
+          def addMirrors = { repos ->
+            try {
+              def created = mirrorUrls.collect { u -> repos.maven { url u } }
+              created.reverse().each { r ->
+                repos.remove(r)
+                repos.addFirst(r)
+              }
+            } catch (Throwable t) {
+              println "mirror skipped: ${t.message}"
             }
-            repositories { mirrors.each { u -> maven { url u } } }
           }
+
           beforeSettings { settings ->
-            settings.pluginManagement {
-              repositories { mirrors.each { u -> maven { url u } } }
+            addMirrors(settings.pluginManagement.repositories)
+          }
+
+          gradle.settingsEvaluated { settings ->
+            try {
+              addMirrors(settings.dependencyResolutionManagement.repositories)
+            } catch (Throwable t) {
+              println "mirror skipped: ${t.message}"
+            }
+          }
+
+          allprojects {
+            try {
+              def mode = gradle.settings.dependencyResolutionManagement.repositoriesMode.get()
+              if (mode == RepositoriesMode.PREFER_PROJECT) {
+                addMirrors(repositories)
+              }
+              addMirrors(buildscript.repositories)
+            } catch (Throwable t) {
+              println "mirror skipped: ${t.message}"
             }
           }
           EOF
