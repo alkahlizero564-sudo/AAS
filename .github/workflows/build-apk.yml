@@ -34,6 +34,15 @@ jobs:
           fi
           rm -rf test
 
+      - name: Opt out of AGP 9 new DSL (مؤقت)
+        run: |
+          G=android/gradle.properties
+          touch "$G"
+          printf '\n' >> "$G"
+          grep -q '^android.newDsl' "$G" || echo 'android.newDsl=false' >> "$G"
+          echo "--- gradle.properties ---"
+          cat "$G"
+
       - name: Patch android (permissions, name, minSdk)
         run: |
           M=android/app/src/main/AndroidManifest.xml
