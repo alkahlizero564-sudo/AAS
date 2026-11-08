@@ -49,12 +49,38 @@ jobs:
 
       - run: flutter pub get
 
-      - name: Build (يعيد المحاولة لو فشل تحميل Gradle)
+      - name: Build (مع بدائل لتحميل Gradle)
         run: |
-          for i in 1 2 3; do
-            flutter build apk --release && exit 0
-            echo "المحاولة $i فشلت. إعادة بعد 20 ثانية..."
-            sleep 20
+          set -o pipefail
+          P=android/gradle/wrapper/gradle-wrapper.properties
+
+          use_mirror() {
+            VER=$(grep -oE 'gradle-[0-9][0-9.]*' "$P" | head -1 | sed 's/^gradle-//; s/\.$//')
+            for M in "https://mirrors.cloud.tencent.com/gradle" "https://mirrors.aliyun.com/gradle"; do
+              if curl -fsIL --max-time 25 "$M/gradle-$VER-bin.zip" > /dev/null; then
+                sed -i '/^distributionSha256Sum/d' "$P"
+                sed -i "s#^distributionUrl=.*#distributionUrl=$M/gradle-$VER-bin.zip#" "$P"
+                echo "Gradle mirror: $M (version $VER)"
+                return 0
+              fi
+            done
+            echo "no mirror available"
+            return 1
+          }
+
+          for i in 1 2 3 4; do
+            if flutter build apk --release 2>&1 | tee build.log; then
+              exit 0
+            fi
+            if ! grep -qE 'HTTP response code|Could not (resolve|download|get)|timed out|Connection reset' build.log; then
+              echo "فشل ليس بسبب الشبكة. لا إعادة محاولة."
+              exit 1
+            fi
+            echo "المحاولة $i فشلت بسبب الشبكة."
+            if [ -f "$P" ] && ! grep -q mirrors "$P"; then
+              use_mirror || true
+            fi
+            sleep 15
           done
           exit 1
 
