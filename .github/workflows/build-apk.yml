@@ -49,7 +49,14 @@ jobs:
 
       - run: flutter pub get
 
-      - run: flutter build apk --release
+      - name: Build (يعيد المحاولة لو فشل تحميل Gradle)
+        run: |
+          for i in 1 2 3; do
+            flutter build apk --release && exit 0
+            echo "المحاولة $i فشلت. إعادة بعد 20 ثانية..."
+            sleep 20
+          done
+          exit 1
 
       - name: Rename apk
         run: cp build/app/outputs/flutter-apk/app-release.apk "$APP_NAME.apk"
