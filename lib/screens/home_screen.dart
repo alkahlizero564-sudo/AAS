@@ -4,6 +4,7 @@ import 'design_screen.dart';
 import 'edit_app_screen.dart';
 import 'generate_screen.dart';
 import 'idea_screen.dart';
+import 'notify_screen.dart';
 import 'preview_screen.dart';
 import 'release_screen.dart';
 import 'settings_screen.dart';
@@ -135,6 +136,9 @@ class _HomeScreenState extends State<HomeScreen> {
           _navCard(Icons.storage_rounded, 'توليد المشروع',
               'قاعدة البيانات وكود التطبيقات',
               () => _open(const GenerateScreen())),
+          _navCard(Icons.notifications_active_rounded, 'الإشعارات',
+              'Firebase بين التطبيقين',
+              () => _open(const NotifyScreen())),
           _navCard(Icons.rocket_launch_rounded, 'النشر والبناء',
               'رفع لـ GitHub وبناء APK وتثبيت',
               () => _open(const ReleaseScreen())),
